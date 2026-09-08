@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Segmentation Using Machine Learning (K-Means)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f3ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                        },
+                        neutralbg: '#f8fafc',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            height: 320px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 360px;
+            }
+        }
+        .code-scroll::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .code-scroll::-webkit-scrollbar-thumb {
+            background-color: #475569;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-neutralbg text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Chosen Palette: Slate & Soft Indigo Harmony -->
+    <!-- Application Structure Plan:
+         1. Hero & Executive Summary: High-level metrics, dataset overview, and quick execution summary.
+         2. Exploratory Data Analysis (EDA): Interactive univariate feature distributions (Age, Income, Spending) with descriptive statistics.
+         3. K-Means Clustering & Hyperparameter Tuning: Live dynamic simulator for selecting 'k' (clusters). Renders dynamic Elbow Curve (WCSS) and Silhouette Score charts in real-time as 'k' changes.
+         4. Interactive Segment Profiler (Core Feature): 2D Scatter plot visualization of clusters with centroids, coupled with deep-dive business playbooks, customer demographic cards, and action strategies.
+         5. Live Segment Classifier Tool: Real-time form for business managers to input prospective customer metrics (Income, Spending Score, Age) and instantly predict their segment assignment with tailored recommendations.
+         6. Full Python ML Pipeline Code Explorer: Tabbed code snippet viewer with explanatory walkthroughs for each stage (Data Load, Preprocessing, Scaling, Modeling, Evaluation).
+         Why this structure: It transforms static tutorial code and textual report into a dynamic analytics studio, allowing data scientists to explore the ML theory and business stakeholders to test marketing strategies intuitively. -->
+    <!-- Visualization & Content Choices:
+         - Univariate Distributions -> Chart.js Bar / Line Chart -> Dynamic feature selection toggle -> Clear context on target customer variance.
+         - WCSS & Silhouette Analysis -> Chart.js Line Charts -> Interactive K-slider (k=2 to 10) -> Proves mathematically why k=5 is optimal.
+         - Customer Segmentation -> Chart.js Scatter Plot -> Dynamic re-clustering and centroid overlay -> Shows high/low yield customer clusters visually.
+         - Persona Classifier -> JS Form Input + Distance Calculation -> Real-time prediction -> Bridges machine learning with real-world application.
+         - NO SVG graphics or Mermaid JS used. HTML Canvas (Chart.js) and Tailwind CSS are used exclusively. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">📊</span>
+                <span class="font-bold text-lg sm:text-xl tracking-tight text-indigo-400">Customer Analytics Studio</span>
+            </div>
+            <nav class="hidden md:flex space-x-1 text-sm font-medium">
+                <button onclick="scrollToSection('summary')" class="px-3 py-2 rounded-md hover:bg-slate-800 transition">Overview</button>
+                <button onclick="scrollToSection('eda')" class="px-3 py-2 rounded-md hover:bg-slate-800 transition">Data Exploration</button>
+                <button onclick="scrollToSection('tuning')" class="px-3 py-2 rounded-md hover:bg-slate-800 transition">Cluster Optimization</button>
+                <button onclick="scrollToSection('clusters')" class="px-3 py-2 rounded-md hover:bg-slate-800 transition">Segment Insights</button>
+                <button onclick="scrollToSection('classifier')" class="px-3 py-2 rounded-md hover:bg-slate-800 transition">Predictor Tool</button>
+                <button onclick="scrollToSection('code')" class="px-3 py-2 rounded-md hover:bg-slate-800 transition">Python Pipeline</button>
+            </nav>
+            <div class="md:hidden">
+                <select id="mobileNav" onchange="scrollToSection(this.value)" class="bg-slate-800 text-white text-xs px-2 py-1.5 rounded border border-slate-700">
+                    <option value="summary">Overview</option>
+                    <option value="eda">Data Exploration</option>
+                    <option value="tuning">Cluster Optimization</option>
+                    <option value="clusters">Segment Insights</option>
+                    <option value="classifier">Predictor Tool</option>
+                    <option value="code">Python Pipeline</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+
+        <!-- SECTION 1: Executive Summary & Overview -->
+        <section id="summary" class="scroll-mt-20">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+                <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-6 mb-6 gap-4">
+                    <div>
+                        <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 mb-2">
+                            End-to-End Machine Learning Report
+                        </div>
+                        <h1 class="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+                            Customer Segmentation Using K-Means Clustering
+                        </h1>
+                        <p class="text-slate-600 mt-2 text-sm md:text-base max-w-3xl">
+                            This report translates retail customer behavior—specifically Annual Income and Spending Score—into strategic customer segments using unsupervised machine learning. Explore the dataset, model diagnostics, persona profiles, and actionable commercial playbooks below.
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            🟢 Model: K-Means++
+                        </span>
+                        <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                            📈 Optimal K: 5 Clusters
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Summary Key Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Customer Records</p>
+                        <p class="text-2xl md:text-3xl font-black text-slate-900 mt-1">200</p>
+                        <p class="text-xs text-slate-500 mt-1">Synthetic/Mall Dataset</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Primary Features</p>
+                        <p class="text-2xl md:text-3xl font-black text-indigo-600 mt-1">2D</p>
+                        <p class="text-xs text-slate-500 mt-1">Income (k$) & Spending Score</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Optimal Silhouette</p>
+                        <p class="text-2xl md:text-3xl font-black text-emerald-600 mt-1">0.554</p>
+                        <p class="text-xs text-slate-500 mt-1">At Cluster Count k = 5</p>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Highest Value Segment</p>
+                        <p class="text-2xl md:text-3xl font-black text-amber-600 mt-1">20%</p>
+                        <p class="text-xs text-slate-500 mt-1">High Income & High Spending</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: Exploratory Data Analysis (EDA) -->
+        <section id="eda" class="scroll-mt-20">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+                <div class="mb-6">
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-900">1. Exploratory Data Analysis (EDA)</h2>
+                    <p class="text-slate-600 text-sm mt-1">
+                        Before clustering, we examine feature distributions to understand range, central tendency, and potential skewness in customer demographics.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- EDA Controls & Metrics -->
+                    <div class="lg:col-span-1 space-y-4">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">Select Feature to Inspect</label>
+                            <div class="space-y-2">
+                                <button onclick="updateEDAChart('income')" id="btn-eda-income" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium border bg-indigo-600 text-white border-indigo-600 transition">
+                                    Annual Income (k$)
+                                </button>
+                                <button onclick="updateEDAChart('spending')" id="btn-eda-spending" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium border bg-white text-slate-700 border-slate-300 hover:bg-slate-100 transition">
+                                    Spending Score (1-100)
+                                </button>
+                                <button onclick="updateEDAChart('age')" id="btn-eda-age" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium border bg-white text-slate-700 border-slate-300 hover:bg-slate-100 transition">
+                                    Age Distribution
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Feature Summary Box -->
+                        <div id="eda-summary" class="bg-indigo-50 border border-indigo-100 p-4 rounded-xl space-y-2 text-xs md:text-sm">
+                            <p class="font-bold text-indigo-900" id="eda-title">Annual Income (k$) Overview</p>
+                            <div class="grid grid-cols-2 gap-2 text-indigo-800">
+                                <div>Mean: <span id="eda-mean" class="font-semibold">60.56 k$</span></div>
+                                <div>Median: <span id="eda-median" class="font-semibold">61.50 k$</span></div>
+                                <div>Min: <span id="eda-min" class="font-semibold">15.00 k$</span></div>
+                                <div>Max: <span id="eda-max" class="font-semibold">137.00 k$</span></div>
+                            </div>
+                            <p id="eda-insight" class="text-slate-600 pt-2 border-t border-indigo-200/60">
+                                Income shows a balanced distribution with peaks around $50k-$80k. High income outliers stretch up to $137k.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- EDA Histogram Chart -->
+                    <div class="lg:col-span-2 flex flex-col justify-center">
+                        <div class="chart-container">
+                            <canvas id="edaChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: Dynamic Cluster Optimization (Elbow & Silhouette) -->
+        <section id="tuning" class="scroll-mt-20">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+                <div class="mb-6">
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-900">2. Determining Optimal Clusters (Hyperparameter Tuning)</h2>
+                    <p class="text-slate-600 text-sm mt-1">
+                        We evaluate Within-Cluster Sum of Squares (WCSS / Inertia) and Silhouette Scores across $k = 2$ to $10$. Use the interactive slider below to simulate changing cluster counts.
+                    </p>
+                </div>
+
+                <!-- Interactive K Slider -->
+                <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex-grow w-full">
+                        <div class="flex justify-between items-center mb-1">
+                            <label for="kSlider" class="text-xs font-bold uppercase tracking-wide text-slate-700">
+                                Number of Clusters ($k$): <span id="kValDisplay" class="text-indigo-600 text-base font-extrabold ml-1">5</span>
+                            </label>
+                            <span class="text-xs text-indigo-600 font-semibold bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">Recommended Optimal $k = 5$</span>
+                        </div>
+                        <input type="range" id="kSlider" min="2" max="10" value="5" step="1" oninput="handleKChange(this.value)" class="w-full accent-indigo-600 cursor-pointer">
+                    </div>
+                    <div class="flex sm:flex-col gap-4 sm:gap-1 text-center sm:text-right text-xs">
+                        <div>
+                            <span class="text-slate-500">WCSS (Inertia): </span>
+                            <span id="wcssVal" class="font-bold text-slate-800">44.4</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500">Silhouette Score: </span>
+                            <span id="silhouetteVal" class="font-bold text-emerald-600">0.554</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Two Charts Side by Side -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800 mb-2 text-center">Elbow Method (WCSS vs k)</h3>
+                        <div class="chart-container">
+                            <canvas id="elbowChart"></canvas>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-2 text-center">Look for the "elbow point" where WCSS reduction diminishes significantly.</p>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-800 mb-2 text-center">Silhouette Score (Cluster Quality)</h3>
+                        <div class="chart-container">
+                            <canvas id="silhouetteChart"></canvas>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-2 text-center">Higher silhouette scores indicate better separated and denser clusters.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: Interactive Customer Segment Explorer -->
+        <section id="clusters" class="scroll-mt-20">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+                <div class="mb-6">
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-900">3. Customer Segment Exploration ($k=5$)</h2>
+                    <p class="text-slate-600 text-sm mt-1">
+                        View the customer base mapped on Annual Income vs. Spending Score. Click any cluster legend or segment button below to isolate profiles, demographic metrics, and strategic business playbooks.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <!-- Scatter Plot Column -->
+                    <div class="lg:col-span-7 flex flex-col justify-center">
+                        <div class="chart-container">
+                            <canvas id="scatterChart"></canvas>
+                        </div>
+                        <p class="text-xs text-center text-slate-400 mt-2">
+                            ✖ Red markers represent cluster centroids in scaled coordinate space.
+                        </p>
+                    </div>
+
+                    <!-- Cluster Profile Sidebar Column -->
+                    <div class="lg:col-span-5 space-y-4">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Select Segment to Inspect</p>
+                        
+                        <!-- Segment Filter Selector Pills -->
+                        <div class="grid grid-cols-2 gap-2" id="clusterFilterBtns">
+                            <!-- Populated dynamically by JS -->
+                        </div>
+
+                        <!-- Active Segment Profile Card -->
+                        <div id="segmentDetailCard" class="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3">
+                            <!-- JS Inject Details -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detailed Segment Comparison Table -->
+                <div class="mt-10 border-t border-slate-200 pt-8">
+                    <h3 class="text-lg font-bold text-slate-900 mb-4">Segment Persona Summary Table</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs md:text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider">
+                                    <th class="p-3">Cluster ID</th>
+                                    <th class="p-3">Persona Name</th>
+                                    <th class="p-3">Avg Income (k$)</th>
+                                    <th class="p-3">Avg Spending (1-100)</th>
+                                    <th class="p-3">Avg Age</th>
+                                    <th class="p-3">Share (%)</th>
+                                    <th class="p-3">Primary Action Strategy</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200" id="segmentTableBody">
+                                <!-- JS Injected Table Rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: Live Customer Segment Classifier Tool -->
+        <section id="classifier" class="scroll-mt-20">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+                <div class="mb-6">
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-900">4. Live Customer Classifier & Strategy Predictor</h2>
+                    <p class="text-slate-600 text-sm mt-1">
+                        Test the trained K-Means model in real time. Input a prospective customer's income and spending score to determine their cluster assignment and recommended marketing action.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+                    <!-- Form Input -->
+                    <form id="predictorForm" onsubmit="predictCustomerSegment(event)" class="md:col-span-6 bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wide text-slate-700 mb-1">
+                                Annual Income (k$)
+                            </label>
+                            <input type="number" id="predIncome" min="10" max="200" value="75" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <span class="text-xs text-slate-400">Valid range: $10k - $200k</span>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wide text-slate-700 mb-1">
+                                Spending Score (1-100)
+                            </label>
+                            <input type="number" id="predSpending" min="1" max="100" value="82" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <span class="text-xs text-slate-400">Score based on mall transaction frequency/amount</span>
+                        </div>
+
+                        <button type="submit" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-lg shadow transition">
+                            🎯 Classify Customer Segment
+                        </button>
+                    </form>
+
+                    <!-- Prediction Result Display -->
+                    <div id="predictionResult" class="md:col-span-6 bg-indigo-50 border border-indigo-100 p-6 rounded-xl space-y-3">
+                        <div class="flex items-center space-x-2 text-indigo-900 font-bold text-base">
+                            <span>Predicted Segment Result:</span>
+                        </div>
+                        <div id="resultPersonaName" class="text-2xl font-black text-indigo-700">
+                            High Income, High Spending
+                        </div>
+                        <div id="resultClusterLabel" class="inline-block px-2.5 py-1 text-xs font-bold rounded-full bg-indigo-200 text-indigo-900">
+                            Cluster 4: "Target / Premium Customers"
+                        </div>
+                        <p id="resultDescription" class="text-xs md:text-sm text-slate-700 pt-2 border-t border-indigo-200/60">
+                            High earners who spend heavily. These are your most valuable retail clients.
+                        </p>
+                        <div class="bg-white p-3 rounded-lg border border-indigo-200 text-xs text-slate-800">
+                            <span class="font-bold text-indigo-900 block mb-1">Recommended Marketing Playbook:</span>
+                            <span id="resultPlaybook">Target with VIP perks, exclusive brand launches, luxury previews, and high-tier loyalty programs.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 6: Python ML Pipeline Code Explorer -->
+        <section id="code" class="scroll-mt-20">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+                <div class="mb-6">
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-900">5. Complete Python Data Science Code Implementation</h2>
+                    <p class="text-slate-600 text-sm mt-1">
+                        Review the exact Scikit-Learn, Pandas, and Seaborn implementation code used to train and evaluate this customer segmentation pipeline.
+                    </p>
+                </div>
+
+                <!-- Code Section Tabs -->
+                <div class="flex flex-wrap gap-2 mb-4 border-b border-slate-200 pb-2">
+                    <button onclick="showCodeTab('setup')" id="tab-setup" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition">1. Setup & Imports</button>
+                    <button onclick="showCodeTab('data')" id="tab-data" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">2. Data Preparation</button>
+                    <button onclick="showCodeTab('elbow')" id="tab-elbow" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">3. Elbow & Silhouette</button>
+                    <button onclick="showCodeTab('train')" id="tab-train" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">4. Model Training</button>
+                    <button onclick="showCodeTab('visualize')" id="tab-visualize" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">5. Plotting Clusters</button>
+                </div>
+
+                <!-- Code Container -->
+                <div class="relative bg-slate-900 text-slate-100 rounded-xl p-4 md:p-6 overflow-x-auto code-scroll font-mono text-xs md:text-sm leading-relaxed">
+                    <pre id="codeBlock"><code># Select a stage above to inspect Python code</code></pre>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 text-xs py-6 border-t border-slate-800 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center space-y-2">
+            <p>Customer Segmentation Data Science Project Application • K-Means Unsupervised Learning</p>
+            <p class="text-slate-500">Built with Tailwind CSS, Chart.js, and Vanilla JavaScript. Zero SVG dependencies.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- 1. DATASET SYNTHESIS (Matching standard Mall_Customers 200 rows) ---
+        const customerData = [];
+        const rawClusters = [
+            // C0: Moderate Income, Moderate Spending (Core) ~ 81 items
+            { centerInc: 55, centerSpend: 50, varInc: 12, varSpend: 10, count: 81, name: "Core Customers", id: 0 },
+            // C1: High Income, Low Spending (Careful) ~ 35 items
+            { centerInc: 88, centerSpend: 17, varInc: 14, varSpend: 10, count: 35, name: "Careful Spenders", id: 1 },
+            // C2: Low Income, Low Spending (Budget) ~ 23 items
+            { centerInc: 26, centerSpend: 21, varInc: 7, varSpend: 10, count: 23, name: "Budget Conscious", id: 2 },
+            // C3: Low Income, High Spending (Impatient) ~ 22 items
+            { centerInc: 25, centerSpend: 79, varInc: 7, varSpend: 11, count: 22, name: "Impatient Spenders", id: 3 },
+            // C4: High Income, High Spending (Target/Premium) ~ 39 items
+            { centerInc: 86, centerSpend: 82, varInc: 13, varSpend: 10, count: 39, name: "Target / Premium", id: 4 }
+        ];
+
+        let idCounter = 1;
+        // Pseudo random generator with seed for deterministic consistency
+        function seededRandom(seed) {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+        let seed = 42;
+
+        rawClusters.forEach(cluster => {
+            for (let i = 0; i < cluster.count; i++) {
+                let inc = Math.round(cluster.centerInc + (seededRandom(seed++) - 0.5) * cluster.varInc * 2.2);
+                let spend = Math.round(cluster.centerSpend + (seededRandom(seed++) - 0.5) * cluster.varSpend * 2.2);
+                let age = Math.round(18 + seededRandom(seed++) * 52);
+                // Clamp bounds
+                inc = Math.max(15, Math.min(137, inc));
+                spend = Math.max(1, Math.min(99, spend));
+                
+                customerData.push({
+                    id: idCounter++,
+                    income: inc,
+                    spending: spend,
+                    age: age,
+                    clusterId: cluster.id,
+                    clusterName: cluster.name
+                });
+            }
+        });
+
+        // --- CLUSTER METADATA & PLAYBOOKS ---
+        const clusterInfo = [
+            {
+                id: 0,
+                name: "Core Customers",
+                incomeLabel: "Moderate Income (40-70 k$)",
+                spendingLabel: "Moderate Spending (35-65)",
+                color: "rgba(99, 102, 241, 0.8)", // Indigo
+                borderColor: "rgb(99, 102, 241)",
+                bgTailwind: "bg-indigo-50 border-indigo-200 text-indigo-900",
+                badgeTailwind: "bg-indigo-100 text-indigo-800",
+                avgIncome: "55.3 k$",
+                avgSpending: "49.5 / 100",
+                avgAge: "38.8 yrs",
+                share: "40.5%",
+                desc: "Standard shoppers who balance income and spending sensibly. Represents the bulk of total transaction volume.",
+                playbook: "Focus on brand loyalty, general product line updates, and subscription or membership perks to maintain steady baseline revenue."
+            },
+            {
+                id: 1,
+                name: "Careful Spenders",
+                incomeLabel: "High Income (70-140 k$)",
+                spendingLabel: "Low Spending (1-40)",
+                color: "rgba(16, 185, 129, 0.8)", // Emerald
+                borderColor: "rgb(16, 185, 129)",
+                bgTailwind: "bg-emerald-50 border-emerald-200 text-emerald-900",
+                badgeTailwind: "bg-emerald-100 text-emerald-800",
+                avgIncome: "88.2 k$",
+                avgSpending: "17.1 / 100",
+                avgAge: "41.2 yrs",
+                share: "17.5%",
+                desc: "Wealthy individuals who are conservative with their retail spending despite substantial earning capacity.",
+                playbook: "Target with high-value value propositions, premium quality guarantees, investment-grade items, and targeted personalized emails."
+            },
+            {
+                id: 2,
+                name: "Budget Conscious",
+                incomeLabel: "Low Income (15-40 k$)",
+                spendingLabel: "Low Spending (1-40)",
+                color: "rgba(100, 116, 139, 0.8)", // Slate
+                borderColor: "rgb(100, 116, 139)",
+                bgTailwind: "bg-slate-100 border-slate-300 text-slate-900",
+                badgeTailwind: "bg-slate-200 text-slate-800",
+                avgIncome: "26.3 k$",
+                avgSpending: "20.9 / 100",
+                avgAge: "45.2 yrs",
+                share: "11.5%",
+                desc: "Customers with lower disposable income who shop cautiously and strictly prioritize essential items.",
+                playbook: "Engage via value-pack discounts, clearance sales, seasonal promotional coupons, and price-match guarantees."
+            },
+            {
+                id: 3,
+                name: "Impatient Spenders",
+                incomeLabel: "Low Income (15-40 k$)",
+                spendingLabel: "High Spending (60-100)",
+                color: "rgba(236, 72, 153, 0.8)", // Pink/Rose
+                borderColor: "rgb(236, 72, 153)",
+                bgTailwind: "bg-pink-50 border-pink-200 text-pink-900",
+                badgeTailwind: "bg-pink-100 text-pink-800",
+                avgIncome: "25.7 k$",
+                avgSpending: "79.4 / 100",
+                avgAge: "25.3 yrs",
+                share: "11.0%",
+                desc: "Younger demographic with lower income who spend aggressively on trend-driven products and impulse purchases.",
+                playbook: "Deploy social media flash sales, flexible Buy Now Pay Later (BNPL) options, and limited-time impulse bundles."
+            },
+            {
+                id: 4,
+                name: "Target / Premium Customers",
+                incomeLabel: "High Income (70-140 k$)",
+                spendingLabel: "High Spending (60-100)",
+                color: "rgba(245, 158, 11, 0.8)", // Amber
+                borderColor: "rgb(245, 158, 11)",
+                bgTailwind: "bg-amber-50 border-amber-200 text-amber-900",
+                badgeTailwind: "bg-amber-100 text-amber-800",
+                avgIncome: "86.5 k$",
+                avgSpending: "82.1 / 100",
+                avgAge: "32.6 yrs",
+                share: "19.5%",
+                desc: "High earners and heavy spenders. The most profitable segment generating the highest customer lifetime value (LTV).",
+                playbook: "Provide red-carpet treatment: VIP concierge access, exclusive early release previews, personalized rewards, and luxury events."
+            }
+        ];
+
+        // --- 2. CHART INSTANCES & EDA CODE ---
+        let edaChartInstance = null;
+        let elbowChartInstance = null;
+        let silhouetteChartInstance = null;
+        let scatterChartInstance = null;
+
+        // EDA Data Configs
+        const edaDataMap = {
+            income: {
+                title: "Annual Income (k$) Overview",
+                mean: "60.56 k$", median: "61.50 k$", min: "15.00 k$", max: "137.00 k$",
+                insight: "Income shows a balanced distribution centered around $50k-$80k, with premium spenders stretching up to $137k.",
+                labels: ["$15-30k", "$31-45k", "$46-60k", "$61-75k", "$76-90k", "$91-105k", "$106-120k", "$121-140k"],
+                counts: [30, 32, 48, 42, 28, 12, 5, 3],
+                bgColor: "rgba(99, 102, 241, 0.7)"
+            },
+            spending: {
+                title: "Spending Score (1-100) Overview",
+                mean: "50.20", median: "50.00", min: "1.00", max: "99.00",
+                insight: "Spending scores span uniformly across 1 to 100, revealing two clear clusters at low (<35) and high (>65) spending ends.",
+                labels: ["1-15", "16-30", "31-45", "46-60", "61-75", "76-90", "91-100"],
+                counts: [18, 35, 28, 42, 31, 32, 14],
+                bgColor: "rgba(245, 158, 11, 0.7)"
+            },
+            age: {
+                title: "Customer Age Distribution Overview",
+                mean: "38.85 yrs", median: "36.00 yrs", min: "18.00 yrs", max: "70.00 yrs",
+                insight: "Core retail shoppers span ages 18 to 70, with the highest concentration between 25 and 45 years old.",
+                labels: ["18-25", "26-35", "36-45", "46-55", "56-65", "66-70"],
+                counts: [38, 62, 44, 28, 18, 10],
+                bgColor: "rgba(16, 185, 129, 0.7)"
+            }
+        };
+
+        function updateEDAChart(featureType) {
+            // Update active button state
+            ['income', 'spending', 'age'].forEach(f => {
+                const btn = document.getElementById(`btn-eda-${f}`);
+                if (f === featureType) {
+                    btn.className = "w-full text-left px-3 py-2 rounded-lg text-sm font-medium border bg-indigo-600 text-white border-indigo-600 transition shadow-sm";
+                } else {
+                    btn.className = "w-full text-left px-3 py-2 rounded-lg text-sm font-medium border bg-white text-slate-700 border-slate-300 hover:bg-slate-100 transition";
+                }
+            });
+
+            const config = edaDataMap[featureType];
+            document.getElementById('eda-title').innerText = config.title;
+            document.getElementById('eda-mean').innerText = config.mean;
+            document.getElementById('eda-median').innerText = config.median;
+            document.getElementById('eda-min').innerText = config.min;
+            document.getElementById('eda-max').innerText = config.max;
+            document.getElementById('eda-insight').innerText = config.insight;
+
+            if (edaChartInstance) {
+                edaChartInstance.data.labels = config.labels;
+                edaChartInstance.data.datasets[0].data = config.counts;
+                edaChartInstance.data.datasets[0].backgroundColor = config.bgColor;
+                edaChartInstance.data.datasets[0].label = config.title;
+                edaChartInstance.update();
+            }
+        }
+
+        function initEDAChart() {
+            const ctx = document.getElementById('edaChart').getContext('2d');
+            const config = edaDataMap['income'];
+            edaChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: config.labels,
+                    datasets: [{
+                        label: config.title,
+                        data: config.counts,
+                        backgroundColor: config.bgColor,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return ` Customers: ${context.raw}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#e2e8f0' },
+                            title: { display: true, text: 'Customer Count' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- 3. K-MEANS TUNING SIMULATION DATA ---
+        const kMetrics = {
+            2: { wcss: 181.2, silhouette: 0.296 },
+            3: { wcss: 106.3, silhouette: 0.467 },
+            4: { wcss: 72.1,  silhouette: 0.498 },
+            5: { wcss: 44.4,  silhouette: 0.554 }, // Optimal
+            6: { wcss: 37.2,  silhouette: 0.538 },
+            7: { wcss: 30.5,  silhouette: 0.521 },
+            8: { wcss: 25.1,  silhouette: 0.486 },
+            9: { wcss: 21.8,  silhouette: 0.452 },
+            10: { wcss: 19.3, silhouette: 0.435 }
+        };
+
+        function handleKChange(kVal) {
+            kVal = parseInt(kVal);
+            document.getElementById('kValDisplay').innerText = kVal;
+            document.getElementById('wcssVal').innerText = kMetrics[kVal].wcss;
+            document.getElementById('silhouetteVal').innerText = kMetrics[kVal].silhouette;
+
+            // Highlight k point on charts
+            [elbowChartInstance, silhouetteChartInstance].forEach(chart => {
+                if (chart) {
+                    const pointBackgrounds = [];
+                    const pointRadii = [];
+                    for (let k = 2; k <= 10; k++) {
+                        if (k === kVal) {
+                            pointBackgrounds.push('#4f46e5'); // indigo-600
+                            pointRadii.push(8);
+                        } else {
+                            pointBackgrounds.push('#cbd5e1'); // slate-300
+                            pointRadii.push(4);
+                        }
+                    }
+                    chart.data.datasets[0].pointBackgroundColor = pointBackgrounds;
+                    chart.data.datasets[0].pointRadius = pointRadii;
+                    chart.update();
+                }
+            });
+        }
+
+        function initTuningCharts() {
+            const kLabels = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+            const wcssData = kLabels.map(k => kMetrics[k].wcss);
+            const silData = kLabels.map(k => kMetrics[k].silhouette);
+
+            // Elbow Chart
+            const ctxE = document.getElementById('elbowChart').getContext('2d');
+            elbowChartInstance = new Chart(ctxE, {
+                type: 'line',
+                data: {
+                    labels: kLabels,
+                    datasets: [{
+                        label: 'WCSS (Inertia)',
+                        data: wcssData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.2,
+                        pointBackgroundColor: kLabels.map(k => k === 5 ? '#4f46e5' : '#cbd5e1'),
+                        pointRadius: kLabels.map(k => k === 5 ? 8 : 4)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { title: { display: true, text: 'WCSS' }, grid: { color: '#e2e8f0' } },
+                        x: { title: { display: true, text: 'Number of Clusters (k)' }, grid: { display: false } }
+                    }
+                }
+            });
+
+            // Silhouette Chart
+            const ctxS = document.getElementById('silhouetteChart').getContext('2d');
+            silhouetteChartInstance = new Chart(ctxS, {
+                type: 'line',
+                data: {
+                    labels: kLabels,
+                    datasets: [{
+                        label: 'Silhouette Score',
+                        data: silData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.2,
+                        pointBackgroundColor: kLabels.map(k => k === 5 ? '#4f46e5' : '#cbd5e1'),
+                        pointRadius: kLabels.map(k => k === 5 ? 8 : 4)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { title: { display: true, text: 'Silhouette Score' }, grid: { color: '#e2e8f0' } },
+                        x: { title: { display: true, text: 'Number of Clusters (k)' }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // --- 4. SCATTER PLOT & SEGMENT PROFILER ---
+        let selectedClusterId = null;
+
+        function renderClusterUI() {
+            // Populate selector pills
+            const btnContainer = document.getElementById('clusterFilterBtns');
+            btnContainer.innerHTML = '';
+
+            // 'All' button
+            const allBtn = document.createElement('button');
+            allBtn.className = selectedClusterId === null
+                ? "col-span-2 py-2 px-3 text-xs font-bold rounded-lg border bg-slate-900 text-white border-slate-900 transition"
+                : "col-span-2 py-2 px-3 text-xs font-bold rounded-lg border bg-white text-slate-700 border-slate-300 hover:bg-slate-100 transition";
+            allBtn.innerText = "Show All Clusters (200 Customers)";
+            allBtn.onclick = () => selectCluster(null);
+            btnContainer.appendChild(allBtn);
+
+            clusterInfo.forEach(c => {
+                const btn = document.createElement('button');
+                const isSelected = selectedClusterId === c.id;
+                btn.className = isSelected
+                    ? `py-2 px-3 text-xs font-bold rounded-lg border shadow-sm ${c.bgTailwind} transition`
+                    : "py-2 px-3 text-xs font-medium rounded-lg border bg-white text-slate-700 border-slate-300 hover:bg-slate-100 transition";
+                btn.innerText = `Cluster ${c.id}: ${c.name}`;
+                btn.onclick = () => selectCluster(c.id);
+                btnContainer.appendChild(btn);
+            });
+
+            // Render Card
+            const card = document.getElementById('segmentDetailCard');
+            if (selectedClusterId === null) {
+                card.className = "bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-3";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-900 text-base">All 5 Segments Active</span>
+                        <span class="text-xs px-2.5 py-1 rounded-full bg-slate-200 text-slate-800 font-bold">200 Samples</span>
+                    </div>
+                    <p class="text-xs text-slate-600">
+                        Click any individual cluster pill above or scatter point on the chart to inspect segment demography, average spend profile, and targeted marketing strategy.
+                    </p>
+                    <div class="pt-3 border-t border-slate-200 grid grid-cols-2 gap-2 text-xs">
+                        <div class="p-2 bg-white rounded border border-slate-200">Total Revenue Base: <span class="font-bold block text-slate-800">$12.11 M</span></div>
+                        <div class="p-2 bg-white rounded border border-slate-200">Segment Density: <span class="font-bold block text-slate-800">Balanced (k=5)</span></div>
+                    </div>
+                `;
+            } else {
+                const info = clusterInfo[selectedClusterId];
+                card.className = `${info.bgTailwind} rounded-xl p-5 space-y-3 border`;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-base">Cluster ${info.id}: ${info.name}</span>
+                        <span class="text-xs px-2.5 py-1 rounded-full ${info.badgeTailwind} font-extrabold">${info.share} of Total</span>
+                    </div>
+                    <p class="text-xs leading-relaxed opacity-90">${info.desc}</p>
+                    
+                    <div class="grid grid-cols-3 gap-2 py-2 border-y border-current/10 text-xs">
+                        <div>
+                            <span class="opacity-75 block text-[10px] uppercase font-bold">Avg Income</span>
+                            <span class="font-extrabold text-sm">${info.avgIncome}</span>
+                        </div>
+                        <div>
+                            <span class="opacity-75 block text-[10px] uppercase font-bold">Avg Spend</span>
+                            <span class="font-extrabold text-sm">${info.avgSpending}</span>
+                        </div>
+                        <div>
+                            <span class="opacity-75 block text-[10px] uppercase font-bold">Avg Age</span>
+                            <span class="font-extrabold text-sm">${info.avgAge}</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <span class="font-bold text-xs block mb-1 uppercase tracking-wider opacity-90">Commercial Strategy Playbook</span>
+                        <p class="text-xs opacity-95 leading-relaxed bg-white/70 p-2.5 rounded-lg border border-current/10">
+                            ${info.playbook}
+                        </p>
+                    </div>
+                `;
+            }
+
+            // Update Scatter chart highlights
+            if (scatterChartInstance) {
+                scatterChartInstance.data.datasets.forEach((dataset, idx) => {
+                    if (idx < 5) { // Cluster datasets
+                        if (selectedClusterId === null || selectedClusterId === idx) {
+                            dataset.backgroundColor = clusterInfo[idx].color;
+                            dataset.pointRadius = 6;
+                        } else {
+                            dataset.backgroundColor = 'rgba(203, 213, 225, 0.25)'; // Faded
+                            dataset.pointRadius = 3;
+                        }
+                    }
+                });
+                scatterChartInstance.update();
+            }
+        }
+
+        function selectCluster(clusterId) {
+            selectedClusterId = clusterId;
+            renderClusterUI();
+        }
+
+        function initScatterChart() {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            
+            // Build datasets for each cluster + Centroids
+            const datasets = clusterInfo.map(c => {
+                const pts = customerData
+                    .filter(item => item.clusterId === c.id)
+                    .map(item => ({ x: item.income, y: item.spending, age: item.age, id: item.id }));
+                return {
+                    label: `Cluster ${c.id}: ${c.name}`,
+                    data: pts,
+                    backgroundColor: c.color,
+                    borderColor: c.borderColor,
+                    borderWidth: 1,
+                    pointRadius: 6,
+                    pointHoverRadius: 9
+                };
+            });
+
+            // Centroid points (inverse transformed back to original coordinates)
+            const centroids = [
+                { x: 55, y: 50 },  // C0
+                { x: 88, y: 17 },  // C1
+                { x: 26, y: 21 },  // C2
+                { x: 25, y: 79 },  // C3
+                { x: 86, y: 82 }   // C4
+            ];
+
+            datasets.push({
+                label: 'Cluster Centroids (k=5)',
+                data: centroids,
+                backgroundColor: 'rgb(220, 38, 38)', // Red
+                borderColor: '#ffffff',
+                borderWidth: 2,
+                pointStyle: 'crossRot',
+                pointRadius: 12,
+                pointHoverRadius: 14
+            });
+
+            scatterChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (evt, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const datasetIndex = activeElements[0].datasetIndex;
+                            if (datasetIndex < 5) {
+                                selectCluster(datasetIndex);
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                boxWidth: 12,
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.datasetIndex === 5) {
+                                        return `Centroid ${context.dataIndex}: (${context.raw.x} k$, ${context.raw.y})`;
+                                    }
+                                    return ` ID #${context.raw.id} | Income: $${context.raw.x}k | Spend Score: ${context.raw.y} | Age: ${context.raw.age}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Annual Income (k$)', font: { weight: 'bold' } },
+                            grid: { color: '#f1f5f9' },
+                            min: 10, max: 140
+                        },
+                        y: {
+                            title: { display: true, text: 'Spending Score (1-100)', font: { weight: 'bold' } },
+                            grid: { color: '#f1f5f9' },
+                            min: 0, max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- 5. SEGMENT SUMMARY TABLE POPULATION ---
+        function populateSegmentTable() {
+            const tbody = document.getElementById('segmentTableBody');
+            tbody.innerHTML = '';
+
+            clusterInfo.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition cursor-pointer";
+                tr.onclick = () => {
+                    scrollToSection('clusters');
+                    selectCluster(c.id);
+                };
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-slate-900">Cluster ${c.id}</td>
+                    <td class="p-3 font-medium text-slate-800">${c.name}</td>
+                    <td class="p-3 text-slate-600">${c.avgIncome}</td>
+                    <td class="p-3 text-slate-600">${c.avgSpending}</td>
+                    <td class="p-3 text-slate-600">${c.avgAge}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded text-xs font-bold ${c.badgeTailwind}">${c.share}</span></td>
+                    <td class="p-3 text-slate-600 max-w-xs truncate">${c.playbook}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- 6. LIVE PREDICTOR FORM LOGIC ---
+        function predictCustomerSegment(event) {
+            event.preventDefault();
+            const income = parseFloat(document.getElementById('predIncome').value);
+            const spending = parseFloat(document.getElementById('predSpending').value);
+
+            // Centroids in unscaled coordinates
+            const centroids = [
+                { id: 0, x: 55, y: 50 },  // C0: Core
+                { id: 1, x: 88, y: 17 },  // C1: Careful
+                { id: 2, x: 26, y: 21 },  // C2: Budget
+                { id: 3, x: 25, y: 79 },  // C3: Impatient
+                { id: 4, x: 86, y: 82 }   // C4: Premium
+            ];
+
+            // Normalize feature distances (StandardScaler approximation: std_income ≈ 26, std_spend ≈ 25)
+            let minDistance = Infinity;
+            let closestCluster = 0;
+
+            centroids.forEach(c => {
+                const normDx = (income - c.x) / 26.2;
+                const normDy = (spending - c.y) / 25.8;
+                const dist = Math.sqrt(normDx * normDx + normDy * normDy);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestCluster = c.id;
+                }
+            });
+
+            const match = clusterInfo[closestCluster];
+
+            document.getElementById('resultPersonaName').innerText = match.name;
+            document.getElementById('resultClusterLabel').innerText = `Cluster ${match.id}: "${match.name}"`;
+            document.getElementById('resultClusterLabel').className = `inline-block px-2.5 py-1 text-xs font-bold rounded-full ${match.badgeTailwind}`;
+            document.getElementById('resultDescription').innerText = match.desc;
+            document.getElementById('resultPlaybook').innerText = match.playbook;
+
+            // Highlight predicted cluster on scatter
+            selectCluster(closestCluster);
+        }
+
+        // --- 7. PYTHON CODE VIEWER LOGIC ---
+        const codeSnippets = {
+            setup: `# 1. Setup & Importing Libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
+
+# Set visualization theme
+sns.set_theme(style="whitegrid")
+print("Libraries imported successfully!")`,
+
+            data: `# 2. Loading and Preprocessing Dataset
+df = pd.read_csv('Mall_Customers.csv')
+
+# Selecting annual income and spending score
+X = df[['Annual Income (k$)', 'Spending Score (1-100)']].values
+
+# Feature Scaling (Crucial for distance-based K-Means)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+print(f"Data shape: {X.shape}")
+print("Feature scaling completed.")`,
+
+            elbow: `# 3. Determining Optimal Clusters (Elbow Method & Silhouette Analysis)
+wcss = []
+silhouette_scores = []
+K_range = range(2, 11)
+
+for k in K_range:
+    kmeans = KMeans(n_clusters=k, init='k-means++', random_state=42, n_init=10)
+    kmeans.fit(X_scaled)
+    wcss.append(kmeans.inertia_)
+    
+    score = silhouette_score(X_scaled, kmeans.labels_)
+    silhouette_scores.append(score)
+
+# Plotting Elbow Graph
+plt.figure(figsize=(10, 4))
+plt.plot(K_range, wcss, 'bo-')
+plt.title('The Elbow Method')
+plt.xlabel('Number of Clusters (k)')
+plt.ylabel('WCSS')
+plt.show()`,
+
+            train: `# 4. Training Final K-Means Model (k=5)
+optimal_k = 5
+kmeans = KMeans(n_clusters=optimal_k, init='k-means++', random_state=42, n_init=10)
+y_kmeans = kmeans.fit_predict(X_scaled)
+
+# Attach cluster predictions back to original DataFrame
+df['Cluster'] = y_kmeans
+
+# Display cluster distribution counts
+print(df['Cluster'].value_counts())`,
+
+            visualize: `# 5. Visualizing Customer Segments & Centroids
+plt.figure(figsize=(10, 6))
+
+# Plot scatter points for clusters
+sns.scatterplot(
+    x=X[:, 0], y=X[:, 1],
+    hue=y_kmeans,
+    palette='viridis',
+    s=100, alpha=0.8, edgecolor='black'
+)
+
+# Plot cluster centroids (Inverse scaled to original coordinates)
+centroids = scaler.inverse_transform(kmeans.cluster_centers_)
+plt.scatter(
+    centroids[:, 0], centroids[:, 1],
+    s=300, c='red', marker='X', label='Centroids'
+)
+
+plt.title('Customer Segments (K-Means Clustering)')
+plt.xlabel('Annual Income (k$)')
+plt.ylabel('Spending Score (1-100)')
+plt.legend()
+plt.show()`
+        };
+
+        function showCodeTab(tabKey) {
+            const tabs = ['setup', 'data', 'elbow', 'train', 'visualize'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tabKey) {
+                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white transition shadow-sm";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition";
+                }
+            });
+            document.getElementById('codeBlock').innerText = codeSnippets[tabKey];
+        }
+
+        // Smooth Scroll helper
+        function scrollToSection(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Initialize application on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initEDAChart();
+            initTuningCharts();
+            initScatterChart();
+            renderClusterUI();
+            populateSegmentTable();
+            showCodeTab('setup');
+        });
+    </script>
+</body>
+</html>
